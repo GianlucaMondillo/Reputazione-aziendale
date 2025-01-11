@@ -1,0 +1,52 @@
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]  # Puoi cambiare il branch come preferisci
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train model
+        run: |
+          python train.py
+
+      - name: Prepare test set
+        run: |
+          python -c "
+import os
+import fasttext
+from datasets import load_dataset
+
+dataset = load_dataset('tweet_eval','sentiment')['test'].select(range(100))
+with open('test_temp.txt','w',encoding='utf-8') as f:
+    for ex in dataset:
+        label = ex['label']
+        text = ex['text'].replace(chr(10),' ').replace(chr(13),' ')
+        f.write(f'__label__{label} {text}\n')
+"
+
+      - name: Run integration tests
+        run: |
+          python integration_test.py
+
+      - name: Deploy to Hugging Face
+        if: success()
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python deploy.py

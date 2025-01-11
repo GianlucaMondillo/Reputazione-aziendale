@@ -1,0 +1,4 @@
+fasttext
+datasets
+huggingface_hub
+gitpython
